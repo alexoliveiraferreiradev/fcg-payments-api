@@ -1,0 +1,12 @@
+﻿<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Fcg.Payments.API/Fcg.Payments.API.csproj" />
+    <Project Path="src/Fcg.Payments.Application/Fcg.Payments.Application.csproj" Id="68de4004-49ab-4b66-b268-34c2e755b0f7" />
+    <Project Path="src/Fcg.Payments.Domain/Fcg.Payments.Domain.csproj" Id="b6e2d9d2-fd24-40d9-85af-2d7a82a653a3" />
+    <Project Path="src/Fcg.Payments.Infrastructure/Fcg.Payments.Infrastructure.csproj" Id="538fde1e-98cd-4838-a935-21de33e4ac00" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Fcg.Payments.Application.Tests/Fcg.Payments.Application.Tests.csproj" Id="6a945d32-8930-4d91-9907-a6466c9c7796" />
+    <Project Path="tests/Fcg.Payments.Domain.Tests/Fcg.Payments.Domain.Tests.csproj" Id="7a88d249-7567-4a8b-a4ef-a566d60718ce" />
+  </Folder>
+</Solution>

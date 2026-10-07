@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>ad7b7d67-e1c6-4fa9-9ad8-113e548d4d8b</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Consumers\**" />
+    <Content Remove="Consumers\**" />
+    <EmbeddedResource Remove="Consumers\**" />
+    <None Remove="Consumers\**" />
+  </ItemGroup>
+
+  <ItemGroup>	  	  
+	  <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.15">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+	  </PackageReference>	  
+	
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Fcg.Payments.Application\Fcg.Payments.Application.csproj" />
+    <ProjectReference Include="..\Fcg.Payments.Infrastructure\Fcg.Payments.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

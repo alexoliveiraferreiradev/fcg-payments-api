@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Fcg.Core.SharedContracts" Version="1.1.4" />
+    <PackageReference Include="Fcg.Core.SharedContracts" Version="1.1.6" />
     <PackageReference Include="MediatR" Version="14.1.0" />
   </ItemGroup>
 

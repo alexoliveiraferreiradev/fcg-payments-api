@@ -76,10 +76,10 @@ namespace Fcg.Payments.Application.Tests.Features.Commands.ProcessPayment
             capturedPayment!.Status.Should().Be(StatusPayment.Paid);
             _paymentRepositoryMock.Verify(r => r.AddPayment(It.IsAny<Payment>()), Times.Once);
             _integrationEventPublisherMock.Verify(
-                p => p.PublishAsync<IPaymentProcessedIntegrationEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()),
+                p => p.PublishAsync<IPaymentApprovedIntegrationEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()),
                 Times.Once);
             _integrationEventPublisherMock.Verify(
-                p => p.PublishAsync<IPaymentFailedIntegrationEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()),
+                p => p.PublishAsync<IPurchaseRejectedIntegrationEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()),
                 Times.Never);
             _unitOfWorkMock.Verify(u => u.CommitAsync(), Times.Once);
         }
@@ -108,10 +108,10 @@ namespace Fcg.Payments.Application.Tests.Features.Commands.ProcessPayment
             capturedPayment!.Status.Should().Be(StatusPayment.Rejected);
             _paymentRepositoryMock.Verify(r => r.AddPayment(It.IsAny<Payment>()), Times.Once);
             _integrationEventPublisherMock.Verify(
-                p => p.PublishAsync<IPaymentFailedIntegrationEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()),
+                p => p.PublishAsync<IPurchaseRejectedIntegrationEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()),
                 Times.Once);
             _integrationEventPublisherMock.Verify(
-                p => p.PublishAsync<IPaymentProcessedIntegrationEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()),
+                p => p.PublishAsync<IPaymentApprovedIntegrationEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()),
                 Times.Never);
             _unitOfWorkMock.Verify(u => u.CommitAsync(), Times.Once);
         }

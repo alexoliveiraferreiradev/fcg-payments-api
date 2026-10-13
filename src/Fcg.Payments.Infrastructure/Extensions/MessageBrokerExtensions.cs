@@ -1,5 +1,6 @@
 ﻿using Fcg.Core.SharedContracts.Interfaces;
 using Fcg.Core.SharedContracts.MessageContracts;
+using Fcg.Core.SharedContracts.Messaging;
 using Fcg.Payments.Infrastructure.Consumers;
 using Fcg.Payments.Infrastructure.MessageBroker;
 using Fcg.Payments.Infrastructure.Persistence;
@@ -38,10 +39,10 @@ namespace Fcg.Payments.Infrastructure.Extensions
                         r.Interval(3, TimeSpan.FromSeconds(5));
                     });
 
-                    cfg.Message<IPaymentApprovedIntegrationEvent>(m => m.SetEntityName(ServiceBusTopics.PaymentApproved));
-                    cfg.Message<IPurchaseRejectedIntegrationEvent>(m => m.SetEntityName(ServiceBusTopics.PurchaseRejected));
-                    cfg.Message<IDeliveryFailedIntegrationEvent>(m => m.SetEntityName(ServiceBusTopics.DeliveryFailed));
-                    cfg.Message<IOrderPlacedIntegrationEvent>(m => m.SetEntityName(ServiceBusTopics.OrderPlaced));
+                    cfg.Message<IPaymentApprovedIntegrationEvent>(m => m.SetEntityName(Topics.PaymentApproved));
+                    cfg.Message<IPurchaseRejectedIntegrationEvent>(m => m.SetEntityName(Topics.PurchaseRejected));
+                    cfg.Message<IDeliveryFailedIntegrationEvent>(m => m.SetEntityName(Topics.DeliveryFailed));
+                    cfg.Message<IOrderPlacedIntegrationEvent>(m => m.SetEntityName(Topics.OrderPlaced));
 
                     cfg.ReceiveEndpoint(serviceBusConfig.PaymentOrderQueue, e =>
                     {

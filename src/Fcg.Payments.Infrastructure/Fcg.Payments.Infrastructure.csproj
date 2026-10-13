@@ -9,8 +9,8 @@
 
   <ItemGroup>
 	<PackageReference Include="Fcg.Core.WebApi" Version="1.0.8" />
+	<PackageReference Include="MassTransit.Azure.ServiceBus.Core" Version="8.4.1" />
 	<PackageReference Include="MassTransit.EntityFrameworkCore" Version="8.4.1" />
-	<PackageReference Include="MassTransit.RabbitMQ" Version="8.4.1" />
     <PackageReference Include="AspNetCore.HealthChecks.SqlServer" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="9.0.15" />
     <PackageReference Include="MediatR" Version="14.1.0" />

@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+.git/
+.gitignore
+tests/
+k8s/
+README.md
+Dockerfile
+.dockerignore
+LICENSE

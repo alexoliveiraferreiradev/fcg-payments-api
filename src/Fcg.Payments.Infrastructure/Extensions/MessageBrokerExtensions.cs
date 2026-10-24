@@ -1,5 +1,6 @@
 ﻿using Fcg.Core.SharedContracts.Interfaces;
-using Fcg.Core.WebApi.MessageBroker;
+using Fcg.Core.SharedContracts.MessageContracts;
+using Fcg.Core.SharedContracts.Messaging;
 using Fcg.Payments.Infrastructure.Consumers;
 using Fcg.Payments.Infrastructure.MessageBroker;
 using Fcg.Payments.Infrastructure.Persistence;
@@ -17,7 +18,7 @@ namespace Fcg.Payments.Infrastructure.Extensions
         {
             services.AddScoped<IIntegrationEventPublisher, MassTransitIntegrationEventPublisher>();
 
-            services.AddOptions<PaymentServiceRabbitMqSettings>().BindConfiguration(PaymentServiceRabbitMqSettings.SectionName)
+            services.AddOptions<AzureServiceBusSettings>().BindConfiguration(AzureServiceBusSettings.SectionName)
             .ValidateDataAnnotations().ValidateOnStart();
 
             services.AddMassTransit(x =>
@@ -29,36 +30,32 @@ namespace Fcg.Payments.Infrastructure.Extensions
                     o.UseBusOutbox();
                 });
 
-
-                x.UsingRabbitMq((context, cfg) =>
+                x.UsingAzureServiceBus((context, cfg) =>
                 {
-                    var rabbitMqConfig = context.GetRequiredService<IOptions<PaymentServiceRabbitMqSettings>>().Value;
-
-                    cfg.Host(rabbitMqConfig.Host, rabbitMqConfig.Port, "/", h =>
-                    {
-                        h.Username(rabbitMqConfig.Username);
-                        h.Password(rabbitMqConfig.Password);
-                    });
-
+                    var serviceBusConfig = context.GetRequiredService<IOptions<AzureServiceBusSettings>>().Value;
+                    cfg.Host(serviceBusConfig.ConnectionString);
                     cfg.UseMessageRetry(r =>
                     {
                         r.Interval(3, TimeSpan.FromSeconds(5));
                     });
 
-                    cfg.ReceiveEndpoint(rabbitMqConfig.PaymentOrderQueue, e =>
+                    cfg.Message<IPaymentApprovedIntegrationEvent>(m => m.SetEntityName(Topics.PaymentApproved));
+                    cfg.Message<IPurchaseRejectedIntegrationEvent>(m => m.SetEntityName(Topics.PurchaseRejected));
+                    cfg.Message<IDeliveryFailedIntegrationEvent>(m => m.SetEntityName(Topics.DeliveryFailed));
+                    cfg.Message<IOrderPlacedIntegrationEvent>(m => m.SetEntityName(Topics.OrderPlaced));
+
+                    cfg.ReceiveEndpoint(serviceBusConfig.PaymentOrderQueue, e =>
                     {
                         e.UseEntityFrameworkOutbox<PaymentDbContext>(context);
                         e.ConfigureConsumer<OrderPlacedEventConsumer>(context);
                     });
-
-                    cfg.ReceiveEndpoint(rabbitMqConfig.PaymentDeliveryFailedQueue, e =>
+                    cfg.ReceiveEndpoint(serviceBusConfig.PaymentDeliveryFailedQueue, e =>
                     {
                         e.UseEntityFrameworkOutbox<PaymentDbContext>(context);
                         e.ConfigureConsumer<DeliveryFailedEventConsumer>(context);
                     });
-
-
                 });
+
             });
             return services;
         }

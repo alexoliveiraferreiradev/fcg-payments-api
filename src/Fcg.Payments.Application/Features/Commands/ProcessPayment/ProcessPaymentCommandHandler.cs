@@ -53,7 +53,7 @@ namespace Fcg.Payments.Application.Features.Commands.ProcessPayment
 
                     _paymentRepository.AddPayment(payment);                 
 
-                    await _integrationEventPublisher.PublishAsync<IPaymentProcessedIntegrationEvent>(new
+                    await _integrationEventPublisher.PublishAsync<IPaymentApprovedIntegrationEvent>(new
                     {
                         EventId = request.EventId,
                         CreatedAt = request.CreatedAt,
@@ -74,7 +74,7 @@ namespace Fcg.Payments.Application.Features.Commands.ProcessPayment
 
                     _paymentRepository.AddPayment(payment);
 
-                    await _integrationEventPublisher.PublishAsync<IPaymentFailedIntegrationEvent>(new
+                    await _integrationEventPublisher.PublishAsync<IPurchaseRejectedIntegrationEvent>(new
                     {
                         OrderId = request.OrderId,
                         UserId = request.UserId,

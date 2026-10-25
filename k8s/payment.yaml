@@ -31,7 +31,8 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
       - name: c-fcg-payments-api
-        image:  alexoliverdev/fcg-payments-api:1.5  
+        image: acrfiapcloudgames.azurecr.io/fcg-payments-api:1.1
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
         resources:
@@ -42,32 +43,17 @@ spec:
             cpu: "300m"
             memory: "256Mi"
         env:
-          - name: RabbitMqSettings__Host
-            valueFrom:
-              configMapKeyRef:
-                name: payment-config
-                key: RABBITMQ_SERVER
-          - name: RabbitMqSettings__Port
-            valueFrom:
-              configMapKeyRef:
-                name: payment-config
-                key: RABBITMQ_PORT
-          - name: RabbitMqSettings__Username
+          - name: AzureServiceBus__ConnectionString
             valueFrom:
               secretKeyRef:
-                name: payment-opaque
-                key: RABBITMQ_USER
-          - name: RabbitMqSettings__Password
-            valueFrom:
-              secretKeyRef:
-                name: payment-opaque
-                key: RABBITMQ_PASS
-          - name: RabbitMqSettings__PaymentOrderQueue
+                name: fcg-secrets
+                key: ServiceBus_Connection
+          - name: AzureServiceBus__PaymentOrderQueue
             valueFrom:
               configMapKeyRef:
                 name: payment-config
                 key: PAYMENT_ORDER_QUEUE
-          - name: RabbitMqSettings__PaymentDeliveryFailedQueue
+          - name: AzureServiceBus__PaymentDeliveryFailedQueue
             valueFrom:
               configMapKeyRef:
                 name: payment-config
@@ -95,18 +81,22 @@ spec:
           - name: DatabaseSettings__Username
             valueFrom:
               secretKeyRef:
-                name: payment-opaque
+                name: fcg-secrets
                 key: DB_USER
           - name: DatabaseSettings__Password
             valueFrom:
               secretKeyRef:
-                name: payment-opaque
+                name: fcg-secrets
                 key: DB_PASS 
           - name: K8S_MASSTELEMETRY
             valueFrom:
               configMapKeyRef:
                 name: payment-config
-                key: MASSTRANSIT_USAGE_TELEMETRY                             
+                key: MASSTRANSIT_USAGE_TELEMETRY    
+        volumeMounts:
+          - name: secrets-store
+            mountPath: /mnt/secrets
+            readOnly: true
         livenessProbe:
           httpGet:
             path: /health/liveness
@@ -119,6 +109,14 @@ spec:
             port: 8080
           initialDelaySeconds: 15
           periodSeconds: 5
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: fcg-kv                         
+        
 ---
 apiVersion: v1
 kind: Service

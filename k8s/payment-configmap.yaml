@@ -6,8 +6,6 @@ data:
   DB_SERVER: sql-service
   DB_PORT: "1433"
   DB_NAME: "Fcg_Payments"
-  RABBITMQ_SERVER: rabbitmq-service
-  RABBITMQ_PORT: "5672"
   ENVIRONMENT: "Development"
   PAYMENT_ORDER_QUEUE: "payment-order-queue"
   PAYMENT_DELIVERY_FAILED_QUEUE: "payment-delivery-failed-queue"

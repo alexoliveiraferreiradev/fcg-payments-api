@@ -42,7 +42,8 @@ spec:
             memory: "32Mi"
       containers:
       - name: migration-payment-runner
-        image: alexoliverdev/fcg-payments-api:1.5
+        image: acrfiapcloudgames.azurecr.io/fcg-payments-api:1.1
+        imagePullPolicy: Always
         command: ["./efbundle"]
         resources:
           requests:
@@ -70,10 +71,21 @@ spec:
           - name: DatabaseSettings__Username
             valueFrom:
               secretKeyRef:
-                name: payment-opaque
+                name: fcg-secrets
                 key: DB_USER
           - name: DatabaseSettings__Password
             valueFrom:
               secretKeyRef:
-                name: payment-opaque
+                name: fcg-secrets
                 key: DB_PASS
+        volumeMounts:
+          - name: secrets-store
+            mountPath: /mnt/secrets
+            readOnly: true
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: fcg-kv

@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-	<PackageReference Include="Fcg.Core.WebApi" Version="1.0.8" />
+	<PackageReference Include="Fcg.Core.WebApi" Version="1.0.9" />
 	<PackageReference Include="MassTransit.Azure.ServiceBus.Core" Version="8.4.1" />
 	<PackageReference Include="MassTransit.EntityFrameworkCore" Version="8.4.1" />
     <PackageReference Include="AspNetCore.HealthChecks.SqlServer" Version="9.0.0" />

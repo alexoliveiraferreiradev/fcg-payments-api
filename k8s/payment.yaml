@@ -88,7 +88,7 @@ spec:
               secretKeyRef:
                 name: fcg-secrets
                 key: DB_PASS 
-          - name: K8S_MASSTELEMETRY
+          - name: MASSTRANSIT_USAGE_TELEMETRY
             valueFrom:
               configMapKeyRef:
                 name: payment-config

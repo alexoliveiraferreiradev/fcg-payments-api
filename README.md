@@ -8,7 +8,20 @@ O serviço atua de forma **puramente reativa** dentro do fluxo de compra: ele n�
 
 ## 🔄 Fluxo de Eventos e Responsabilidades
 
-A **Payments API** não expõe Controllers ou Swagger; toda a sua interação ocorre de forma reativa, utilizando o **RabbitMQ** para o consumo e publicação de eventos de integração.
+A **Payments API** não expõe Controllers ou Swagger; toda a sua interação ocorre de forma reativa, utilizando o **Azure Service Bus** (tópicos e subscriptions, abstraído pelo **MassTransit** com `UsingAzureServiceBus`) para o consumo e publicação de eventos de integração.
+
+### 🚌 Topologia no Azure Service Bus
+
+Cada contrato é publicado em um **tópico com nome fixo** (`SetEntityName` com as constantes da classe `Topics` do `Fcg.Core.SharedContracts`). Cada *consumer* tem a sua própria **fila**, e o MassTransit cria a *subscription* que encaminha as mensagens do tópico para ela.
+
+| Direção | Evento | Tópico | Fila (configuração `AzureServiceBus:*`) |
+| :--- | :--- | :--- | :--- |
+| Consome | `IOrderPlacedIntegrationEvent` | `order-placed` | `payment-order-queue` (`PaymentOrderQueue`) → `OrderPlacedEventConsumer` |
+| Consome | `IDeliveryFailedIntegrationEvent` | `delivery-failed` | `payment-delivery-failed-queue` (`PaymentDeliveryFailedQueue`) → `DeliveryFailedEventConsumer` |
+| Publica | `IPaymentApprovedIntegrationEvent` | `payment-approved` | — (consumido pela Order API) |
+| Publica | `IPurchaseRejectedIntegrationEvent` | `purchase-rejected` | — (consumido pela Order API) |
+
+Os dois *receive endpoints* usam o **Inbox/Outbox do EF Core** (`UseEntityFrameworkOutbox<PaymentDbContext>`): a gravação do pagamento e a publicação do resultado acontecem na mesma transação, e uma mensagem entregue duas vezes não é processada duas vezes. Falhas são reprocessadas 3 vezes com intervalo de 5 segundos antes de a mensagem ir para a fila de erro.
 
 ```mermaid
 sequenceDiagram
@@ -20,10 +33,10 @@ sequenceDiagram
     P->>P: Simula a transação (90% aprovação)
 
     alt Aprovado
-        P-->>O: PaymentProcessedEvent
+        P-->>O: PaymentApprovedEvent
         Note right of O: Finaliza o pedido e libera os jogos
     else Recusado
-        P-->>O: PaymentFailedEvent
+        P-->>O: PurchaseRejectedEvent
         Note right of O: Cancela o pedido
     end
 
@@ -37,8 +50,8 @@ sequenceDiagram
 *   **Consome:** `IOrderPlacedIntegrationEvent`, publicado pela **Order API** no momento em que o pedido é criado.
 *   **O que faz:** Ao receber este evento, a aplicação cria um registro de pagamento e executa uma **simulação** (com 90% de chance de aprovação; pedidos de valor zero são sempre aprovados). O meio de pagamento também é sorteado.
 *   **Produz (Publica):**
-    *   `IPaymentProcessedIntegrationEvent`: Disparado caso a simulação seja **aprovada**. A *Order API* o consome para finalizar o pedido e, em seguida, liberar os jogos na biblioteca do usuário.
-    *   `IPaymentFailedIntegrationEvent`: Disparado caso a simulação seja **rejeitada**. A *Order API* o consome para cancelar o pedido, encerrando o fluxo de compra.
+    *   `IPaymentApprovedIntegrationEvent` (tópico `payment-approved`): Disparado caso a simulação seja **aprovada**. A *Order API* o consome para finalizar o pedido e, em seguida, liberar os jogos na biblioteca do usuário.
+    *   `IPurchaseRejectedIntegrationEvent` (tópico `purchase-rejected`): Disparado caso a simulação seja **rejeitada**. A *Order API* o consome para cancelar o pedido, encerrando o fluxo de compra.
 
 ### 2. Reembolso (Estorno de Pagamentos)
 *   **Consome:** `IDeliveryFailedIntegrationEvent`, publicado pela **Order API** quando a finalização do pedido falha *depois* de o pagamento já ter sido aprovado.
@@ -56,13 +69,13 @@ A API utiliza as seguintes tecnologias em sua pilha de desenvolvimento:
 - **.NET 9.0**: Framework principal para o desenvolvimento da API.
 - **Entity Framework Core 9.0**: ORM utilizado para escrita de dados e mapeamento das entidades no **SQL Server**.
 - **MediatR (v14)**: Implementação do padrão Mediator para desacoplamento e gerenciamento de comandos internos da aplicação.
-- **MassTransit**: Framework avançado de mensageria utilizado para abstrair e facilitar a comunicação com o **RabbitMQ**.
+- **MassTransit & Azure Service Bus**: Framework de mensageria utilizado para abstrair a comunicação com o **Azure Service Bus** (tópicos, subscriptions e filas por *consumer*), com Inbox/Outbox Transacional baseado em EF Core.
 - **xUnit & Moq**: Frameworks para construção e execução de testes unitários e de integração.
 
 ### 📦 Shared Kernels (Pacotes Compartilhados da FCG)
 Projetos criados internamente e utilizados para padronizar e compartilhar recursos base:
 - **Fcg.Core.Abstractions**: Biblioteca de blocos de construção para Domain-Driven Design (DDD) em projetos .NET.
-- **Fcg.Core.SharedContracts**: Contratos de eventos compartilhados para comunicação assíncrona entre os microsserviços da plataforma FCG (ex: RabbitMQ / MassTransit).
+- **Fcg.Core.SharedContracts**: Contratos de eventos compartilhados para comunicação assíncrona entre os microsserviços da plataforma FCG via Azure Service Bus / MassTransit, incluindo a classe `Topics` com os nomes dos tópicos.
 
 ---
 
@@ -74,8 +87,8 @@ A API de Payments segue a estrutura de **Clean Architecture** para proteger o do
 src/
 ├── Fcg.Payments.Domain         # Entidades de Domínio, ValueObjects e Interfaces
 ├── Fcg.Payments.Application    # Casos de Uso (Commands), DTOs e Handlers do MediatR
-├── Fcg.Payments.Infrastructure # Acesso a Dados (EF Core), Mapeamentos e Implementação de Repositórios
-└── Fcg.Payments.API            # Host de Mensageria, Consumers do MassTransit e Inicialização (Program.cs)
+├── Fcg.Payments.Infrastructure # Acesso a Dados (EF Core), Repositórios, Outbox e Consumers do MassTransit (Azure Service Bus)
+└── Fcg.Payments.API            # Host de Mensageria e Inicialização (Program.cs)
 ```
 
 ### Detalhes das Camadas
@@ -87,10 +100,10 @@ Contém as regras de validação, entidades e enums de status da transação. De
 Contém os casos de uso representados por comandos (`ProcessPaymentCommand`, `RefundPaymentCommand`) e os respectivos Handlers (processadores do MediatR) encarregados de orquestrar a execução, gravar nos repositórios e disparar os eventos finais.
 
 #### 3. `Fcg.Payments.Infrastructure` (Infraestrutura)
-Responsável pela persistência e pelo registro do histórico financeiro no **SQL Server** via `DbContext`. Possui mapeamentos explícitos de tabelas e a implementação do padrão Repository com Unit of Work.
+Responsável pela persistência e pelo registro do histórico financeiro no **SQL Server** via `DbContext`. Possui mapeamentos explícitos de tabelas e a implementação do padrão Repository com Unit of Work. Contém também a configuração da mensageria (`MessageBrokerExtensions`): MassTransit com `UsingAzureServiceBus`, mapeamento dos contratos para os tópicos, retry, as tabelas de Inbox/Outbox no `PaymentDbContext` e os *consumers* `OrderPlacedEventConsumer` e `DeliveryFailedEventConsumer`. A connection string e os nomes das filas vêm de `AzureServiceBusSettings`, validados na subida (`ValidateOnStart`).
 
 #### 4. `Fcg.Payments.API` (Apresentação / Worker)
-O ponto de entrada e "worker" da aplicação. Ele inicializa os **Consumers do MassTransit** (`OrderPlacedEventConsumer` e `DeliveryFailedEventConsumer`), ouve a fila ininterruptamente e traduz os eventos recebidos em chamadas (via MediatR) para a camada de aplicação.
+O ponto de entrada e "worker" da aplicação. Ele sobe o barramento do MassTransit com os **Consumers** registrados na infraestrutura (`OrderPlacedEventConsumer` e `DeliveryFailedEventConsumer`), ouve as filas do Azure Service Bus ininterruptamente e traduz os eventos recebidos em chamadas (via MediatR) para a camada de aplicação.
 
 ---
 
@@ -100,14 +113,25 @@ Para o funcionamento correto da API de Pagamentos, as credenciais de banco e do 
 
 ```json
 {
-  "ConnectionStrings": {
-    "PaymentConnection": "Server=localhost;Database=Fcg_Payments;User Id=sa;Password=SuaSenhaSegura;TrustServerCertificate=True;MultipleActiveResultSets=true;",
-    "RabbitMq": "amqp://guest:guest@localhost:5672"
+  "DatabaseSettings": {
+    "Host": "localhost",
+    "Port": "1433",
+    "DatabaseName": "Fcg_Payments",
+    "Username": "sa",
+    "Password": "SuaSenhaSegura"
+  },
+  "AzureServiceBus": {
+    "ConnectionString": "Endpoint=sb://<namespace>.servicebus.windows.net/;SharedAccessKeyName=<policy>;SharedAccessKey=<chave>",
+    "PaymentOrderQueue": "payment-order-queue",
+    "PaymentDeliveryFailedQueue": "payment-delivery-failed-queue"
   }
 }
 ```
 
-No **Kubernetes**, essas variáveis são injetadas de forma dinâmica e segura por meio de `ConfigMaps` e `Secrets`.
+> [!NOTE]
+> **AzureServiceBus** exige um namespace do Azure Service Bus no tier **Standard** ou superior (necessário para tópicos). Sem a connection string ou os nomes das filas, a aplicação não inicia.
+
+No **Kubernetes**, essas variáveis são injetadas de forma dinâmica e segura por meio de `ConfigMaps` (`k8s/payment-configmap.yaml`) e segredos do **Azure Key Vault** (`fcg-secrets`), no formato `DatabaseSettings__Host`, `AzureServiceBus__ConnectionString`, `AzureServiceBus__PaymentOrderQueue` e assim por diante.
 
 ---
 
@@ -115,7 +139,8 @@ No **Kubernetes**, essas variáveis são injetadas de forma dinâmica e segura p
 
 ### Pré-requisitos
 - SDK do [.NET 9.0](https://dotnet.microsoft.com/download/dotnet/9.0) instalado.
-- Servidor SQL Server em execução e RabbitMQ disponível.
+- Servidor SQL Server em execução.
+- Um namespace do **Azure Service Bus** (tier Standard ou superior) e a sua connection string.
 
 ### Passo a Passo (Terminal)
 
@@ -136,7 +161,7 @@ No **Kubernetes**, essas variáveis são injetadas de forma dinâmica e segura p
    ```
 
 > [!NOTE]
-> Como o projeto é exclusivamente reativo, ao iniciar ele se conectará ao RabbitMQ e ficará rodando como um serviço de fundo no terminal aguardando novos eventos na fila. Ele **não abrirá o navegador nem exporá portas web locais** com endpoints Swagger.
+> Como o projeto é exclusivamente reativo, ao iniciar ele se conectará ao Azure Service Bus e ficará rodando como um serviço de fundo no terminal aguardando novos eventos na fila. Ele **não abrirá o navegador nem exporá portas web locais** com endpoints Swagger.
 
 ---
 
